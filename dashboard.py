@@ -20,6 +20,40 @@ def all_categories():
     return collectionOfCategories
 
 
+df['Date'] = pd.to_datetime(df['Date'])
+
+# Aggregate total demand per day
+daily_demand = df.groupby('Date').agg({
+    'Quantity': 'sum',
+    'Total': 'sum',
+    'Rate': 'mean',
+    'Tax': 'mean'
+}).reset_index()
+
+daily_demand['DayOfWeek'] = daily_demand['Date'].dt.dayofweek
+daily_demand['Month'] = daily_demand['Date'].dt.month
+daily_demand['WeekNumber'] = daily_demand['Date'].dt.isocalendar().week
+
+# --- Create interactive figures using Plotly ---
+fig_day = px.scatter(
+    daily_demand,
+    x='DayOfWeek',
+    y='Quantity',
+    trendline='ols',
+    title='Demand vs Day of Week',
+    labels={'DayOfWeek': 'Day of Week (0=Mon, 6=Sun)', 'Quantity': 'Total Quantity'}
+)
+
+fig_week = px.scatter(
+    daily_demand,
+    x='WeekNumber',
+    y='Quantity',
+    trendline='ols',
+    title='Demand vs Week Number',
+    labels={'WeekNumber': 'Week Number', 'Quantity': 'Total Quantity'}
+)
+
+
 app = dash.Dash(__name__)
 app.title = "Dashboard"
 
@@ -53,7 +87,11 @@ app.layout = html.Div([
 
     dcc.Graph(id="scatter_plot"),
 
-    dcc.Graph(id="heatmap")
+    dcc.Graph(id="heatmap"),
+
+    dcc.Graph(id="day_scatter", figure=fig_day),
+
+    dcc.Graph(id="week_scatter", figure=fig_week),
 ])
 
 @app.callback(
@@ -125,8 +163,10 @@ def update_scatter(selected_category, selected_category2):
 )
 def update_heatmap(selected_category):
     # Build a time-based pivot of quantities per category (prefer weekly if available)
+    # remove 
     pivot = (
-        df.groupby(['Week number', 'Category'], as_index=False)['Quantity']
+        df[df['Category'] != 'LIQUOR']
+        .groupby(['Week number', 'Category'], as_index=False)['Quantity']
         .sum()
         .pivot(index='Week number', columns='Category', values='Quantity')
         .fillna(0)
@@ -147,7 +187,6 @@ def update_heatmap(selected_category):
     )
     fig.update_layout(height=600, margin={'l':100,'r':20,'t':50,'b':100})
     return fig
-
 
 
 # Run server
