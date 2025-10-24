@@ -22,7 +22,6 @@ def all_categories():
 
 df['Date'] = pd.to_datetime(df['Date'])
 
-# Aggregate total demand per day
 daily_demand = df.groupby('Date').agg({
     'Quantity': 'sum',
     'Total': 'sum',
@@ -34,7 +33,7 @@ daily_demand['DayOfWeek'] = daily_demand['Date'].dt.dayofweek
 daily_demand['Month'] = daily_demand['Date'].dt.month
 daily_demand['WeekNumber'] = daily_demand['Date'].dt.isocalendar().week
 
-# --- Create interactive figures using Plotly ---
+
 fig_day = px.scatter(
     daily_demand,
     x='DayOfWeek',
@@ -96,30 +95,54 @@ app.layout = html.Div([
 
 @app.callback(
     Output("bar_chart", "figure"),
-    [Input("category_dropdown", "value")]
+    [Input("category_dropdown", "value"),
+     Input("category2_dropdown", "value")]
 )
-def update_graph(selected_category):
-    filtered_df = df[df['Category'] == selected_category]
+def update_graph(selected_category, selected_category2):
+    selected_categories = [c for c in [selected_category, selected_category2] if c is not None]
+    if not selected_categories:
+        return px.bar(title="Please select at least one category")
 
-    # Compute sum per weekday, then divide by the number of unique dates for that weekday (avg per day)
+    filtered_df = df[df['Category'].isin(selected_categories)]
+
     date_col = next((c for c in filtered_df.columns if 'date' in c.lower()), None)
     df_local = filtered_df.copy()
+
     if date_col is not None:
         df_local[date_col] = pd.to_datetime(df_local[date_col])
-        days_per_weekday = df_local.groupby('Week day')[date_col].nunique()
+        days_per_weekday = (
+            df_local.groupby(['Category', 'Week day'])[date_col]
+            .nunique()
+            .reset_index(name='DaysCount')
+        )
     else:
-        days_per_weekday = df_local.groupby('Week day').size()
+        days_per_weekday = (
+            df_local.groupby(['Category', 'Week day'])
+            .size()
+            .reset_index(name='DaysCount')
+        )
 
-    grouped = df_local.groupby('Week day', as_index=False)['Quantity'].sum()
-    grouped['Quantity'] = grouped.apply(
-        lambda r: r['Quantity'] / days_per_weekday.get(r['Week day'], 1),
-        axis=1
+    grouped = (
+        df_local.groupby(['Category', 'Week day'], as_index=False)['Quantity']
+        .sum()
     )
+
+    grouped = grouped.merge(days_per_weekday, on=['Category', 'Week day'], how='left')
+    grouped['Quantity'] = grouped['Quantity'] / grouped['DaysCount']
 
     weekday_order = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
     grouped['Week day'] = pd.Categorical(grouped['Week day'], categories=weekday_order, ordered=True)
     grouped = grouped.sort_values('Week day')
-    fig = px.bar(grouped, x='Week day', y='Quantity', title=f'Average sales for {selected_category} per week day')
+
+    fig = px.bar(
+        grouped,
+        x='Week day',
+        y='Quantity',
+        color='Category',
+        barmode='group',
+        title=f'Average sales per weekday for {" and ".join(selected_categories)}'
+    )
+
     return fig
 
 
@@ -162,8 +185,6 @@ def update_scatter(selected_category, selected_category2):
     [Input("category_dropdown", "value")]
 )
 def update_heatmap(selected_category):
-    # Build a time-based pivot of quantities per category (prefer weekly if available)
-    # remove 
     pivot = (
         df[df['Category'] != 'LIQUOR']
         .groupby(['Week number', 'Category'], as_index=False)['Quantity']
@@ -172,10 +193,8 @@ def update_heatmap(selected_category):
         .fillna(0)
     )
 
-    # Correlation between categories based on their time-series of sold quantities
     corr = pivot.corr()
 
-    # Create heatmap
     fig = px.imshow(
         corr,
         text_auto=True,
