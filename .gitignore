@@ -3,3 +3,6 @@ caffe_change.csv
 caffe_change.xlsx
 caffe.csv
 caffe.xlsx
+Source.gv
+linear_model/__pycache__/linear_config.cpython-311.pyc
+xgboost_model/__pycache__/project_config.cpython-311.pyc
