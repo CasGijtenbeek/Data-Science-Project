@@ -22,6 +22,8 @@ class Config:
     # Features
     use_holidays: bool = True
     holiday_country_code: str = "IN"  
+    use_discount: bool = True
+    use_lags: bool = True
 
     lag_weeks: List[int] = field(default_factory=lambda: [2, 3])
     fillna_method: str = "mean"  

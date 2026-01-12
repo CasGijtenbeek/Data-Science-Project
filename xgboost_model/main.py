@@ -35,9 +35,13 @@ def make_weekly(df: pd.DataFrame, cfg: Config) -> pd.DataFrame:
 
     weekly.sort_values(by=[cfg.week_col], inplace=True)
 
+    if not cfg.use_discount and "Discount" in weekly.columns:
+        weekly = weekly.drop(columns=["Discount"])
+
     # Lag features
-    for k in cfg.lag_weeks:
-        weekly[f"Lag_{k}_Units"] = weekly["Total_Units"].shift(k)
+    if cfg.use_lags:
+        for k in cfg.lag_weeks:
+            weekly[f"Lag_{k}_Units"] = weekly["Total_Units"].shift(k)
 
     # Fill NA
     if cfg.fillna_method == "mean":

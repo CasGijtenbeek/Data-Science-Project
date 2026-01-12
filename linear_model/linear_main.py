@@ -36,9 +36,13 @@ def make_weekly(df: pd.DataFrame, cfg: Config) -> pd.DataFrame:
 
     weekly.sort_values(by=[cfg.week_col], inplace=True)
 
+    if not cfg.use_discount and "Discount" in weekly.columns:
+        weekly = weekly.drop(columns=["Discount"])
+
     # Lag features
-    for k in cfg.lag_weeks:
-        weekly[f"Lag_{k}_Units"] = weekly["Total_Units"].shift(k)
+    if cfg.use_lags:
+        for k in cfg.lag_weeks:
+            weekly[f"Lag_{k}_Units"] = weekly["Total_Units"].shift(k)
 
     # Fill NA
     if cfg.fillna_method == "mean":
@@ -65,7 +69,6 @@ def train_test_split_time(weekly: pd.DataFrame, cfg: Config):
 def plot_predictions(weekly: pd.DataFrame, x_test: pd.DataFrame, y_pred: np.ndarray, cfg: Config):
     week_nums_test = x_test[cfg.week_col].values
 
-    # sort by week number so the line looks correct over time
     order = week_nums_test.argsort()
     week_nums_test_sorted = week_nums_test[order]
     y_pred_sorted = y_pred[order]
@@ -110,6 +113,9 @@ def main():
     df = pd.read_excel(cfg.excel_path)
     df = add_holiday_flag(df, cfg)
     weekly = make_weekly(df, cfg)
+
+    print("\nActive features:")
+    print(weekly.drop(columns="Total_Units").columns.tolist())
 
     x_train, x_test, y_train, y_test = train_test_split_time(weekly, cfg)
 
