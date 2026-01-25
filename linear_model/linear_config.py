@@ -1,43 +1,37 @@
 from dataclasses import dataclass, field
-from typing import List, Optional
+from typing import List, Tuple
 
 @dataclass
 class Config:
     # Data
     excel_path: str = "caffe_change.xlsx"
     date_col: str = "Date"
-    week_col: str = "Week number"
+    qty_col: str = "Quantity"
+    weekday_col: str = "Week day"
+    bucket_col: str = "Time Bucket Num"
+    category_col: str = "Category"
 
-    # Aggregation
-    agg_map: dict = field(default_factory=lambda: {
-        "Quantity": "sum",
-        "Total": "sum",
-        "Discount": "sum",
-    })
-    rename_map: dict = field(default_factory=lambda: {
-        "Quantity": "Total_Units",
-        "Total": "Total_Sales",
-    })
+    week_order: Tuple[str, ...] = (
+        "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"
+    )
 
-    # Features
-    use_holidays: bool = True
-    holiday_country_code: str = "IN"  
-    use_discount: bool = True
-    use_lags: bool = True
-
-    lag_weeks: List[int] = field(default_factory=lambda: [2, 3])
-    fillna_method: str = "mean"  
-
+    # Lags / rolling
+    lag_1_name: str = "Lag_1"
+    # lag_2_name: str = "Lag_2"
+    # roll3_name: str = "Rolling_Avg_3"
+    # rolling_window: int = 3
+    
     # Train/test split
-    train_rows: int = 30  # first N rows train, rest test
+    train_frac: float = 0.8
 
-    # Linear-specific
-    plot_coefficients: bool = True
-    coef_top_n: int = 20
+    # Recursive forecasting
+    warmup_n_dates: int = 3
+
+    # Linear model options
+    standardize: bool = True
 
     # Plot
-    plot_xlim: tuple = (30, 52)
-    plot_xtick_start: int = 30
-    plot_xtick_end: int = 52
+    plot_figsize: Tuple[int, int] = (12, 5)
+
 
    
