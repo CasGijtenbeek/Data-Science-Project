@@ -18,6 +18,29 @@ def series_key(df: pd.DataFrame, cfg: Config):
     dummy_cols = [c for c in df.columns if c.startswith("Category_")]
     return [cfg.bucket_col] + dummy_cols
 
+def run_normal_xgb(x_train, y_train, x_test, y_test, cfg: Config):
+    model = xgboost.XGBRegressor(**cfg.xgb_params)
+    model.fit(x_train, y_train)
+
+    preds = model.predict(x_test)
+
+    daily_sum = evaluate_daily_totals(x_test, y_test, preds)
+    plot_daily_sum(daily_sum, cfg)
+
+
+def run_recursive_xgb(x_train, y_train, x_test, y_test, cfg: Config):
+    xgb_bootstrap = train_bootstrap(x_train, y_train, cfg)
+    x_train_rec = build_recursive_training_features(x_train, xgb_bootstrap, cfg)
+
+    xgb_rec = xgboost.XGBRegressor(**cfg.xgb_params)
+    xgb_rec.fit(x_train_rec, y_train)
+
+    preds = recursive_forecast_groupwise(x_test, y_test, xgb_rec, cfg)
+
+    daily_sum = evaluate_daily_totals(x_test, y_test, preds)
+    plot_daily_sum(daily_sum, cfg)
+
+
 
 def build_daily_df(df: pd.DataFrame, cfg: Config) -> pd.DataFrame:
     df = df.copy()
@@ -190,24 +213,16 @@ def main():
     # Train/test split
     x_train, y_train, x_test, y_test = split_train_test(copy_daily_df, cfg)
 
-    # Bootstrap model trained on true lags
-    xgb_bootstrap = train_bootstrap(x_train, y_train, cfg)
+    mode = cfg.forecast_mode.lower().strip()
 
-    # Build recursive-aware training features
-    x_train_rec = build_recursive_training_features(x_train, xgb_bootstrap, cfg)
+    if mode == "normal":
+        run_normal_xgb(x_train, y_train, x_test, y_test, cfg)
 
-    # Train final recursive-aware model
-    xgb_rec = xgboost.XGBRegressor(**cfg.xgb_params)
-    xgb_rec.fit(x_train_rec, y_train)
+    elif mode == "recursive":
+        run_recursive_xgb(x_train, y_train, x_test, y_test, cfg)
 
-    # Recursive forecast on test
-    preds = recursive_forecast_groupwise(x_test, y_test, xgb_rec, cfg)
-
-    # Evaluate aggregated per day 
-    daily_sum = evaluate_daily_totals(x_test, y_test, preds)
-
-    # Plot
-    plot_daily_sum(daily_sum, cfg)
+    else:
+        raise ValueError("Config.forecast_mode must be 'normal' or 'recursive'")
 
 
 if __name__ == "__main__":

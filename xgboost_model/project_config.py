@@ -3,6 +3,12 @@ from typing import List, Dict, Tuple
 
 @dataclass
 class Config:
+
+    #forecasting mode ("normal" or "recursive")
+    
+    # forecast_mode: str = 'recursive'
+    forecast_mode: str = 'normal'
+
     # Data
     excel_path: str = "caffe_change.xlsx"
     date_col: str = "Date"
